@@ -1,8 +1,10 @@
 package rules
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/openshift-kni/rds-analyzer/internal/types"
@@ -253,6 +255,256 @@ func TestNewEngineWithVersion(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestRegexValidation tests that invalid regex patterns cause NewEngine to return RegexValidationError.
+func TestRegexValidation(t *testing.T) {
+	tests := []struct {
+		name            string
+		rulesYAML       string
+		expectErr       bool
+		warningContains string
+	}{
+		{
+			name: "valid regexes in conditions",
+			rulesYAML: `
+version: "1.0"
+settings:
+  default_impact: "NeedsReview"
+rules:
+  - id: "TEST-001"
+    description: "Test rule with valid regex"
+    match:
+      crName: "test"
+    conditions:
+      - type: "Any"
+        regex: 'net\..*\..*'
+        impact: "NotImpacting"
+        comment: "Valid regex pattern"
+`,
+			expectErr: false,
+		},
+		{
+			name: "invalid regex in rule condition",
+			rulesYAML: `
+version: "1.0"
+settings:
+  default_impact: "NeedsReview"
+rules:
+  - id: "TEST-002"
+    description: "Test rule with invalid regex"
+    match:
+      crName: "test"
+    conditions:
+      - type: "Any"
+        regex: '[invalid-unclosed-bracket'
+        impact: "Impacting"
+        comment: "This regex is invalid"
+`,
+			expectErr:       true,
+			warningContains: "TEST-002",
+		},
+		{
+			name: "invalid regex in global rule",
+			rulesYAML: `
+version: "1.0"
+settings:
+  default_impact: "NeedsReview"
+global_rules:
+  - id: "GLOBAL-001"
+    description: "Global rule with invalid regex"
+    match: {}
+    conditions:
+      - type: "Any"
+        regex: '[invalid(regex'
+        impact: "Impacting"
+        comment: "Invalid regex pattern"
+`,
+			expectErr:       true,
+			warningContains: "GLOBAL-001",
+		},
+		{
+			name: "invalid value_regex in label rule",
+			rulesYAML: `
+version: "1.0"
+settings:
+  default_impact: "NeedsReview"
+label_annotation_rules:
+  labels:
+    - key: "test-label"
+      value_regex: '[unclosed-bracket'
+      description: "Invalid regex in label"
+      impact: "Impacting"
+`,
+			expectErr:       true,
+			warningContains: "value_regex",
+		},
+		{
+			name: "invalid value_regex in annotation rule",
+			rulesYAML: `
+version: "1.0"
+settings:
+  default_impact: "NeedsReview"
+label_annotation_rules:
+  annotations:
+    - key: "test-annotation"
+      value_regex: '(?P<invalid'
+      description: "Invalid regex in annotation"
+      impact: "Impacting"
+`,
+			expectErr:       true,
+			warningContains: "annotation rule",
+		},
+		{
+			name: "multiple invalid regexes",
+			rulesYAML: `
+version: "1.0"
+settings:
+  default_impact: "NeedsReview"
+rules:
+  - id: "BAD-001"
+    description: "First bad rule"
+    match:
+      crName: "test"
+    conditions:
+      - type: "Any"
+        regex: '[bad1'
+        impact: "Impacting"
+        comment: "Bad regex 1"
+  - id: "BAD-002"
+    description: "Second bad rule"
+    match:
+      crName: "test"
+    conditions:
+      - type: "Any"
+        regex: '[bad2'
+        impact: "Impacting"
+        comment: "Bad regex 2"
+`,
+			expectErr:       true,
+			warningContains: "BAD-001",
+		},
+		{
+			name: "valid complex regex patterns",
+			rulesYAML: `
+version: "1.0"
+settings:
+  default_impact: "NeedsReview"
+rules:
+  - id: "COMPLEX-001"
+    description: "Complex valid regexes"
+    match:
+      crName: "test"
+    conditions:
+      - type: "Any"
+        regex: '^\s*interval:\s*(?:([0-5]?\d)m|([1-9]\d{0,2}|[12]\d{3}|3[0-5]\d{2})s)$'
+        impact: "Impacting"
+        comment: "Complex interval pattern"
+      - type: "Any"
+        regex: '.*crashkernel=(?:[1-9]\d*G|676M|67[6-9]M|6[8-9]\dM|[7-9]\d\dM|\d{4,}M)$'
+        impact: "NotImpacting"
+        comment: "Crashkernel memory pattern"
+label_annotation_rules:
+  labels:
+    - key: "interval"
+      value_regex: "^[1-9]m$"
+      description: "Single digit minutes"
+      impact: "NotImpacting"
+`,
+			expectErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create temporary rules file
+			tmpDir := t.TempDir()
+			rulesPath := filepath.Join(tmpDir, "test-rules.yaml")
+			if err := os.WriteFile(rulesPath, []byte(tt.rulesYAML), 0644); err != nil {
+				t.Fatalf("Failed to write test rules file: %v", err)
+			}
+
+			engine, err := NewEngine(rulesPath)
+			if tt.expectErr {
+				if err == nil {
+					t.Fatal("expected regex validation error")
+				}
+				var rev *RegexValidationError
+				if !errors.As(err, &rev) {
+					t.Fatalf("expected *RegexValidationError, got %T: %v", err, err)
+				}
+				if tt.warningContains != "" {
+					found := false
+					for _, w := range rev.Warnings {
+						if strings.Contains(w, tt.warningContains) {
+							found = true
+							break
+						}
+					}
+					if !found {
+						t.Errorf("expected message containing %q, got: %v", tt.warningContains, rev.Warnings)
+					}
+				}
+				for _, w := range rev.Warnings {
+					if !strings.Contains(w, "] line ") {
+						t.Errorf("expected source line (e.g. ] line N:) in warning: %s", w)
+					}
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Failed to create engine: %v", err)
+			}
+			if engine == nil {
+				t.Fatal("engine is nil")
+			}
+		})
+	}
+}
+
+func TestNewEngineFromPaths_merge(t *testing.T) {
+	tmp := t.TempDir()
+	a := filepath.Join(tmp, "a.yaml")
+	b := filepath.Join(tmp, "b.yaml")
+	if err := os.WriteFile(a, []byte(`
+version: "1.0"
+settings:
+  default_impact: "NeedsReview"
+rules:
+  - id: "A-1"
+    match:
+      crName: "x"
+    conditions:
+      - type: "Any"
+        contains: "a"
+        impact: "NotImpacting"
+        comment: "a"
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(b, []byte(`
+version: "1.0"
+settings:
+  default_impact: "Impacting"
+rules:
+  - id: "B-1"
+    match:
+      crName: "y"
+    conditions:
+      - type: "Any"
+        contains: "b"
+        impact: "NotImpacting"
+        comment: "b"
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	engine, err := NewEngineFromPaths([]string{a, b}, "")
+	if err != nil {
+		t.Fatalf("NewEngineFromPaths: %v", err)
+	}
+	if len(engine.GetRules()) != 2 {
+		t.Fatalf("merged rules: got %d want 2", len(engine.GetRules()))
 	}
 }
 
