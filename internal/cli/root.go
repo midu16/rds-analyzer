@@ -25,7 +25,7 @@ var (
 	outputMode        string
 	targetVersion     string
 	inputFile         string
-	rulesFiles        []string
+	rulesFile         string
 	validateRulesOnly bool
 )
 
@@ -39,11 +39,8 @@ Examples:
   # Analyze from stdin with text output and using custom rules file
   cat results.json | rds-analyzer -r /path/to/custom-rules.yaml
 
-  # Merge multiple rules files (order matters; regex in any file must compile or the run fails)
-  rds-analyzer -i results.json -r hub-rules.yaml -r ran-du-rules.yaml
-
   # Validate rules only (all regex/value_regex patterns); no input JSON required
-  rds-analyzer -r ran-du-rules.yaml --validate-rules
+  rds-analyzer -r ran-du-rules.yaml --validate-rules-only
 
   # Analyze from file with HTML output (using default rules file ./rules.yaml)
   rds-analyzer -i results.json -o html > report.html
@@ -75,9 +72,9 @@ func init() {
 		"(Optional) Target OCP version for rules evaluation (e.g., 4.19). If not specified, the highest available version in the rules will be used.")
 	rootCmd.Flags().StringVarP(&inputFile, "input", "i", "",
 		"Input file path (reads from stdin if not specified)")
-	rootCmd.Flags().StringArrayVarP(&rulesFiles, "rules", "r", nil,
-		"Path to rules YAML file (repeatable; files are merged in order). Default: ./rules.yaml")
-	rootCmd.Flags().BoolVar(&validateRulesOnly, "validate-rules", false,
+	rootCmd.Flags().StringVarP(&rulesFile, "rules", "r", "",
+		"Path to rules YAML file. Default: ./rules.yaml")
+	rootCmd.Flags().BoolVar(&validateRulesOnly, "validate-rules-only", false,
 		"Load rules YAML, validate all regexp patterns, and exit. Does not read input JSON (do not use with -i).")
 
 	rootCmd.Version = fmt.Sprintf("%s (commit: %s, built: %s)", Version, Commit, BuildDate)
@@ -89,27 +86,24 @@ func runAnalysis(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	paths := rulesFiles
-	if len(paths) == 0 {
-		paths = []string{"./rules.yaml"}
+	path := rulesFile
+	if path == "" {
+		path = "./rules.yaml"
 	}
 
 	if validateRulesOnly {
 		if inputFile != "" {
-			return fmt.Errorf("--validate-rules cannot be combined with -i")
+			return fmt.Errorf("--validate-rules-only cannot be combined with -i")
 		}
-		_, err := analyzer.New(paths, targetVersion)
+		_, err := analyzer.New(path, targetVersion)
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(os.Stdout, "Rules validation passed: all regexp patterns are valid in %d file(s):\n", len(paths))
-		for _, p := range paths {
-			fmt.Fprintf(os.Stdout, "  - %s\n", p)
-		}
+		fmt.Fprintf(os.Stdout, "Rules validation passed: all regexp patterns are valid in %s\n", path)
 		return nil
 	}
 
-	a, err := analyzer.New(paths, targetVersion)
+	a, err := analyzer.New(path, targetVersion)
 	if err != nil {
 		return err
 	}

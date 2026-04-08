@@ -22,7 +22,7 @@ internal/
 
 ### Data Flow
 
-1. CLI loads and merges rules YAML (`-r`, repeatable), then `rules.Engine` validates every `regex` / `value_regex` via `regexp.Compile`. On failure, the process exits before reading input.
+1. CLI loads rules YAML (`-r`), then `rules.Engine` validates every `regex` / `value_regex` via `regexp.Compile`. On failure, the process exits before reading input.
 2. CLI reads JSON input (file or stdin) into `types.ValidationReport`
 3. `analyzer.Analyzer` orchestrates processing:
    - Uses the loaded `rules.Engine`
@@ -38,11 +38,9 @@ All regex patterns in rule files are validated when the engine is initialized. T
 - `regex` patterns in condition rules (global_rules, rules)
 - `value_regex` patterns in label_annotation_rules
 
-If any pattern fails `regexp.Compile`, the CLI exits with a non-zero status and prints `rules.RegexValidationError` to stderr **before** reading the input JSON or running analysis. Pass multiple files with repeated `-r` (merged in order); every file is validated.
+If any pattern fails `regexp.Compile`, the CLI exits with a non-zero status and prints `rules.RegexValidationError` to stderr **before** reading the input JSON or running analysis.
 
-Use **`--validate-rules`** to load rules and exit after regexp validation (no `-i` required). Example: `./rds-analyzer -r ran-du-rules.yaml --validate-rules`
-
-**Multiple `-r` files** are **concatenated** (hub rules first, then DU rules, etc.)—not “pick one profile.” That can change evaluation versus a single `-r` file (duplicate label rules, extra globals/count rules). For a DU-only report, pass only `ran-du-rules.yaml` unless you intentionally want combined rule sets.
+Use **`--validate-rules-only`** to load rules and exit after regexp validation (no `-i` required). Example: `./rds-analyzer -r ran-du-rules.yaml --validate-rules-only`
 
 The error lists:
 - The rule file name where the invalid pattern was found
@@ -951,11 +949,6 @@ After writing rules, verify they work correctly:
    The analyzer validates every `regex` / `value_regex` when loading rules. Invalid patterns cause immediate exit (exit code 1) with a detailed message; analysis does not run.
    ```bash
    echo '{"Diffs":[]}' | ./rds-analyzer -r rules.yaml
-   ```
-
-   Multiple rule files:
-   ```bash
-   ./rds-analyzer -r hub-rules.yaml -r ran-du-rules.yaml -i testdata/output.json
    ```
 
 3. **Run the analyzer with test data:**

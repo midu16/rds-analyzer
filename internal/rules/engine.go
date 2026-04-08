@@ -24,43 +24,31 @@ type Engine struct {
 // When no target version is specified, it defaults to the highest version
 // defined across all versioned impacts in the rules file.
 func NewEngine(rulesFile string) (*Engine, error) {
-	return NewEngineFromPaths([]string{rulesFile}, "")
+	return NewEngineWithVersion(rulesFile, "")
 }
 
 // NewEngineWithVersion creates a new rule engine with a specific target OCP version.
 // If version is empty, it defaults to the highest version defined in the rules.
+// It validates every regex and value_regex with regexp.Compile and returns
+// RegexValidationError if any pattern is invalid.
 func NewEngineWithVersion(rulesFile, version string) (*Engine, error) {
-	return NewEngineFromPaths([]string{rulesFile}, version)
-}
-
-// NewEngineFromPaths loads one or more rules YAML files (merged in order), validates every
-// regex and value_regex with regexp.Compile, and returns RegexValidationError if any pattern is invalid.
-func NewEngineFromPaths(paths []string, version string) (*Engine, error) {
-	if len(paths) == 0 {
-		return nil, fmt.Errorf("no rules files provided")
+	if rulesFile == "" {
+		return nil, fmt.Errorf("no rules file path")
 	}
 
-	var configs []RulesConfig
-	var allWarnings []string
-	for _, p := range paths {
-		data, err := os.ReadFile(p)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read rules file: %w", err)
-		}
-		var cfg RulesConfig
-		if err := yaml.Unmarshal(data, &cfg); err != nil {
-			return nil, fmt.Errorf("failed to parse rules YAML %q: %w", p, err)
-		}
-		allWarnings = append(allWarnings, validateRegexPatternsFromYAML(data, p)...)
-		configs = append(configs, cfg)
+	data, err := os.ReadFile(rulesFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read rules file: %w", err)
+	}
+	var cfg RulesConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse rules YAML %q: %w", rulesFile, err)
+	}
+	if warnings := validateRegexPatternsFromYAML(data, rulesFile); len(warnings) > 0 {
+		return nil, &RegexValidationError{Warnings: warnings}
 	}
 
-	if len(allWarnings) > 0 {
-		return nil, &RegexValidationError{Warnings: allWarnings}
-	}
-
-	merged := mergeRulesConfigs(configs)
-	engine := &Engine{config: merged}
+	engine := &Engine{config: cfg}
 
 	if version != "" {
 		parsed, err := ParseOCPVersion(version)
@@ -73,43 +61,6 @@ func NewEngineFromPaths(paths []string, version string) (*Engine, error) {
 	}
 
 	return engine, nil
-}
-
-// mergeRulesConfigs concatenates rule lists from multiple files. Settings and top-level
-// metadata come from the first file; later files append global_rules, rules, count_rules,
-// and label/annotation entries.
-func mergeRulesConfigs(configs []RulesConfig) RulesConfig {
-	if len(configs) == 0 {
-		return RulesConfig{}
-	}
-	merged := configs[0]
-	for i := 1; i < len(configs); i++ {
-		c := configs[i]
-		merged.GlobalRules = append(merged.GlobalRules, c.GlobalRules...)
-		merged.Rules = append(merged.Rules, c.Rules...)
-		merged.CountRules = append(merged.CountRules, c.CountRules...)
-		merged.LabelAnnotationRules.Labels = append(merged.LabelAnnotationRules.Labels, c.LabelAnnotationRules.Labels...)
-		merged.LabelAnnotationRules.Annotations = append(merged.LabelAnnotationRules.Annotations, c.LabelAnnotationRules.Annotations...)
-		if c.LabelAnnotationRules.DefaultImpact != "" {
-			merged.LabelAnnotationRules.DefaultImpact = c.LabelAnnotationRules.DefaultImpact
-		}
-		if c.LabelAnnotationRules.DefaultComment != "" {
-			merged.LabelAnnotationRules.DefaultComment = c.LabelAnnotationRules.DefaultComment
-		}
-		if merged.Version == "" && c.Version != "" {
-			merged.Version = c.Version
-		}
-		if merged.Description == "" && c.Description != "" {
-			merged.Description = c.Description
-		}
-		if merged.Settings.DefaultImpact == "" && c.Settings.DefaultImpact != "" {
-			merged.Settings.DefaultImpact = c.Settings.DefaultImpact
-		}
-		if merged.Settings.DefaultSeverity == "" && c.Settings.DefaultSeverity != "" {
-			merged.Settings.DefaultSeverity = c.Settings.DefaultSeverity
-		}
-	}
-	return merged
 }
 
 // findHighestDefinedVersion scans all rules and returns the highest OCP version

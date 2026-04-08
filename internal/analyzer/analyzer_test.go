@@ -50,7 +50,7 @@ func createTestRulesFile(t *testing.T) string {
 func TestNew_ValidRulesFile(t *testing.T) {
 	rulesFile := createTestRulesFile(t)
 
-	a, err := New([]string{rulesFile}, "")
+	a, err := New(rulesFile, "")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -62,7 +62,7 @@ func TestNew_ValidRulesFile(t *testing.T) {
 func TestNew_WithVersion(t *testing.T) {
 	rulesFile := createTestRulesFile(t)
 
-	a, err := New([]string{rulesFile}, "4.19")
+	a, err := New(rulesFile, "4.19")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -75,7 +75,7 @@ func TestNew_WithVersion(t *testing.T) {
 }
 
 func TestNew_InvalidRulesFile(t *testing.T) {
-	_, err := New([]string{"/nonexistent/rules.yaml"}, "")
+	_, err := New("/nonexistent/rules.yaml", "")
 	if err == nil {
 		t.Fatal("expected error for nonexistent rules file, got nil")
 	}
@@ -88,7 +88,7 @@ func TestNew_InvalidVersion(t *testing.T) {
 	rulesFile := createTestRulesFile(t)
 
 	// Invalid version format should fail
-	_, err := New([]string{rulesFile}, "invalid")
+	_, err := New(rulesFile, "invalid")
 	if err == nil {
 		t.Fatal("expected error for invalid version, got nil")
 	}
@@ -96,7 +96,7 @@ func TestNew_InvalidVersion(t *testing.T) {
 
 func TestAnalyze_TextFormat(t *testing.T) {
 	rulesFile := createTestRulesFile(t)
-	a, err := New([]string{rulesFile}, "")
+	a, err := New(rulesFile, "")
 	if err != nil {
 		t.Fatalf("Failed to create analyzer: %v", err)
 	}
@@ -131,7 +131,7 @@ func TestAnalyze_TextFormat(t *testing.T) {
 
 func TestAnalyze_HTMLFormat(t *testing.T) {
 	rulesFile := createTestRulesFile(t)
-	a, err := New([]string{rulesFile}, "")
+	a, err := New(rulesFile, "")
 	if err != nil {
 		t.Fatalf("Failed to create analyzer: %v", err)
 	}
@@ -165,7 +165,7 @@ func TestAnalyze_HTMLFormat(t *testing.T) {
 
 func TestAnalyze_ReportingMode(t *testing.T) {
 	rulesFile := createTestRulesFile(t)
-	a, err := New([]string{rulesFile}, "")
+	a, err := New(rulesFile, "")
 	if err != nil {
 		t.Fatalf("Failed to create analyzer: %v", err)
 	}
@@ -199,7 +199,7 @@ func TestAnalyze_ReportingMode(t *testing.T) {
 
 func TestAnalyze_UnsupportedFormat(t *testing.T) {
 	rulesFile := createTestRulesFile(t)
-	a, err := New([]string{rulesFile}, "")
+	a, err := New(rulesFile, "")
 	if err != nil {
 		t.Fatalf("Failed to create analyzer: %v", err)
 	}
@@ -218,7 +218,7 @@ func TestAnalyze_UnsupportedFormat(t *testing.T) {
 
 func TestGetTargetVersion_NoVersion(t *testing.T) {
 	rulesFile := createTestRulesFile(t)
-	a, err := New([]string{rulesFile}, "")
+	a, err := New(rulesFile, "")
 	if err != nil {
 		t.Fatalf("Failed to create analyzer: %v", err)
 	}
@@ -231,7 +231,7 @@ func TestGetTargetVersion_NoVersion(t *testing.T) {
 
 func TestGetTargetVersion_WithVersion(t *testing.T) {
 	rulesFile := createTestRulesFile(t)
-	a, err := New([]string{rulesFile}, "4.20")
+	a, err := New(rulesFile, "4.20")
 	if err != nil {
 		t.Fatalf("Failed to create analyzer: %v", err)
 	}
@@ -244,7 +244,7 @@ func TestGetTargetVersion_WithVersion(t *testing.T) {
 
 func TestAnalyze_EmptyReport(t *testing.T) {
 	rulesFile := createTestRulesFile(t)
-	a, err := New([]string{rulesFile}, "")
+	a, err := New(rulesFile, "")
 	if err != nil {
 		t.Fatalf("Failed to create analyzer: %v", err)
 	}
@@ -260,7 +260,7 @@ func TestAnalyze_EmptyReport(t *testing.T) {
 
 func TestAnalyze_WithMissingCRs(t *testing.T) {
 	rulesFile := createTestRulesFile(t)
-	a, err := New([]string{rulesFile}, "")
+	a, err := New(rulesFile, "")
 	if err != nil {
 		t.Fatalf("Failed to create analyzer: %v", err)
 	}

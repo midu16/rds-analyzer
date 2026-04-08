@@ -463,51 +463,6 @@ label_annotation_rules:
 	}
 }
 
-func TestNewEngineFromPaths_merge(t *testing.T) {
-	tmp := t.TempDir()
-	a := filepath.Join(tmp, "a.yaml")
-	b := filepath.Join(tmp, "b.yaml")
-	if err := os.WriteFile(a, []byte(`
-version: "1.0"
-settings:
-  default_impact: "NeedsReview"
-rules:
-  - id: "A-1"
-    match:
-      crName: "x"
-    conditions:
-      - type: "Any"
-        contains: "a"
-        impact: "NotImpacting"
-        comment: "a"
-`), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(b, []byte(`
-version: "1.0"
-settings:
-  default_impact: "Impacting"
-rules:
-  - id: "B-1"
-    match:
-      crName: "y"
-    conditions:
-      - type: "Any"
-        contains: "b"
-        impact: "NotImpacting"
-        comment: "b"
-`), 0644); err != nil {
-		t.Fatal(err)
-	}
-	engine, err := NewEngineFromPaths([]string{a, b}, "")
-	if err != nil {
-		t.Fatalf("NewEngineFromPaths: %v", err)
-	}
-	if len(engine.GetRules()) != 2 {
-		t.Fatalf("merged rules: got %d want 2", len(engine.GetRules()))
-	}
-}
-
 // TestEvaluate tests the main Evaluate function with various diff scenarios.
 func TestEvaluate(t *testing.T) {
 	rulesPath := createTestRulesFile(t)

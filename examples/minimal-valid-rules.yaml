@@ -1,7 +1,7 @@
-# Intentionally INVALID regexp patterns for rds-analyzer validation demos (--validate-rules exits 1).
+# Intentionally INVALID regexp patterns for rds-analyzer validation demos (--validate-rules-only exits 1).
 # (Despite the filename, this file is not valid for analysis until patterns are fixed.)
 #
-#   ./build/rds-analyzer -r examples/minimal-valid-rules.yaml --validate-rules
+#   ./build/rds-analyzer -r examples/minimal-valid-rules.yaml --validate-rules-only
 #
 # For valid rules, use examples/example-ran-du-rules.yaml
 

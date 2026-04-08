@@ -17,20 +17,15 @@ type Analyzer struct {
 	ruleEngine *rules.Engine
 }
 
-// New creates a new Analyzer with rules loaded from the specified YAML paths (merged in order).
+// New creates a new Analyzer with rules loaded from the specified YAML file.
 // If version is non-empty, rules are evaluated against that OCP version.
-func New(rulesPaths []string, version string) (*Analyzer, error) {
-	engine, err := createRuleEngine(rulesPaths, version)
+func New(rulesFile string, version string) (*Analyzer, error) {
+	engine, err := rules.NewEngineWithVersion(rulesFile, version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize rule engine: %w", err)
 	}
 
 	return &Analyzer{ruleEngine: engine}, nil
-}
-
-// createRuleEngine creates an engine with or without version specification.
-func createRuleEngine(rulesPaths []string, version string) (*rules.Engine, error) {
-	return rules.NewEngineFromPaths(rulesPaths, version)
 }
 
 // Analyze processes a validation report and writes results to the given writer.
