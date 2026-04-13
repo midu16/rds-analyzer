@@ -258,7 +258,7 @@ func TestNewEngineWithVersion(t *testing.T) {
 	}
 }
 
-// TestRegexValidation tests that invalid regex patterns cause NewEngine to return RegexValidationError.
+// TestRegexValidation tests that invalid regex patterns cause ValidateRulesRegexpPatterns to return RegexValidationError.
 func TestRegexValidation(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -425,7 +425,7 @@ label_annotation_rules:
 				t.Fatalf("Failed to write test rules file: %v", err)
 			}
 
-			engine, err := NewEngine(rulesPath)
+			err := ValidateRulesRegexpPatterns(rulesPath)
 			if tt.expectErr {
 				if err == nil {
 					t.Fatal("expected regex validation error")
@@ -453,6 +453,10 @@ label_annotation_rules:
 				}
 				return
 			}
+			if err != nil {
+				t.Fatalf("ValidateRulesRegexpPatterns: %v", err)
+			}
+			engine, err := NewEngine(rulesPath)
 			if err != nil {
 				t.Fatalf("Failed to create engine: %v", err)
 			}

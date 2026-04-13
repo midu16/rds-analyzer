@@ -20,6 +20,9 @@ type Analyzer struct {
 // New creates a new Analyzer with rules loaded from the specified YAML file.
 // If version is non-empty, rules are evaluated against that OCP version.
 func New(rulesFile string, version string) (*Analyzer, error) {
+	if err := rules.ValidateRulesRegexpPatterns(rulesFile); err != nil {
+		return nil, fmt.Errorf("failed to initialize rule engine: %w", err)
+	}
 	engine, err := rules.NewEngineWithVersion(rulesFile, version)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize rule engine: %w", err)

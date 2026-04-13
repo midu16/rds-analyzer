@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/openshift-kni/rds-analyzer/internal/analyzer"
+	"github.com/openshift-kni/rds-analyzer/internal/rules"
 	"github.com/openshift-kni/rds-analyzer/internal/types"
 	"github.com/spf13/cobra"
 )
@@ -72,8 +73,8 @@ func init() {
 		"(Optional) Target OCP version for rules evaluation (e.g., 4.19). If not specified, the highest available version in the rules will be used.")
 	rootCmd.Flags().StringVarP(&inputFile, "input", "i", "",
 		"Input file path (reads from stdin if not specified)")
-	rootCmd.Flags().StringVarP(&rulesFile, "rules", "r", "",
-		"Path to rules YAML file. Default: ./rules.yaml")
+	rootCmd.Flags().StringVarP(&rulesFile, "rules", "r", "./rules.yaml",
+		"Path to rules YAML file")
 	rootCmd.Flags().BoolVar(&validateRulesOnly, "validate-rules-only", false,
 		"Load rules YAML, validate all regexp patterns, and exit. Does not read input JSON (do not use with -i).")
 
@@ -86,24 +87,16 @@ func runAnalysis(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	path := rulesFile
-	if path == "" {
-		path = "./rules.yaml"
-	}
-
 	if validateRulesOnly {
-		if inputFile != "" {
-			return fmt.Errorf("--validate-rules-only cannot be combined with -i")
+		// Regexp checks only (validateRegexPatternsFromYAML via rules.ValidateRulesRegexpPatterns); no full engine build.
+		if err := rules.ValidateRulesRegexpPatterns(rulesFile); err != nil {
+			return fmt.Errorf("failed to initialize rule engine: %w", err)
 		}
-		_, err := analyzer.New(path, targetVersion)
-		if err != nil {
-			return err
-		}
-		fmt.Fprintf(os.Stdout, "Rules validation passed: all regexp patterns are valid in %s\n", path)
+		fmt.Fprintf(os.Stdout, "Rules validation passed: all regexp patterns are valid in %s\n", rulesFile)
 		return nil
 	}
 
-	a, err := analyzer.New(path, targetVersion)
+	a, err := analyzer.New(rulesFile, targetVersion)
 	if err != nil {
 		return err
 	}
@@ -124,6 +117,10 @@ func validateFlags() error {
 
 	if outputMode != "simple" && outputMode != "reporting" {
 		return fmt.Errorf("invalid output mode %q: must be 'simple' or 'reporting'", outputMode)
+	}
+
+	if validateRulesOnly && inputFile != "" {
+		return fmt.Errorf("--validate-rules-only cannot be combined with -i")
 	}
 
 	return nil

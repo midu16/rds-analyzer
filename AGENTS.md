@@ -22,7 +22,7 @@ internal/
 
 ### Data Flow
 
-1. CLI loads rules YAML (`-r`), then `rules.Engine` validates every `regex` / `value_regex` via `regexp.Compile`. On failure, the process exits before reading input.
+1. CLI loads rules YAML (`-r`). For a full run, `analyzer.New` calls `rules.ValidateRulesRegexpPatterns` (which walks the YAML AST with `validateRegexPatternsFromYAML`), then builds `rules.Engine`. With **`--validate-rules-only`**, the CLI calls `rules.ValidateRulesRegexpPatterns` only and exits without building an engine or reading input JSON. On regexp failure, the process exits before reading input.
 2. CLI reads JSON input (file or stdin) into `types.ValidationReport`
 3. `analyzer.Analyzer` orchestrates processing:
    - Uses the loaded `rules.Engine`
@@ -34,7 +34,7 @@ internal/
 
 ### Regex Validation
 
-All regex patterns in rule files are validated when the engine is initialized. This includes:
+All regex patterns in rule files are validated by `rules.ValidateRulesRegexpPatterns` (YAML regexp walk). `analyzer.New` invokes it before constructing the engine for normal analysis. The **`--validate-rules-only`** path runs the same validation from `internal/cli` without loading the full analyzer. This includes:
 - `regex` patterns in condition rules (global_rules, rules)
 - `value_regex` patterns in label_annotation_rules
 
