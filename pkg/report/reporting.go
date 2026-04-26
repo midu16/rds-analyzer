@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/openshift-kni/rds-analyzer/internal/parser"
-	"github.com/openshift-kni/rds-analyzer/internal/rules"
-	"github.com/openshift-kni/rds-analyzer/internal/types"
+	"github.com/openshift-kni/rds-analyzer/pkg/parser"
+	"github.com/openshift-kni/rds-analyzer/pkg/rules"
+	"github.com/openshift-kni/rds-analyzer/pkg/types"
 )
 
 // ReportingGenerator produces a plain text report.
@@ -85,6 +85,10 @@ func (g *ReportingGenerator) printHeader() {
 		fmt.Fprintf(g.writer, "Used target OCP version: %s\n", targetVersion)
 	}
 
+	if variant := g.ruleEngine.GetRDSVariant(); variant != "" {
+		fmt.Fprintf(g.writer, "Used RDS Variant: %s\n", variant)
+	}
+
 	fmt.Fprintf(g.writer, "Generated: %s\n", time.Now().Format("2006-01-02"))
 	fmt.Fprintln(g.writer)
 }
@@ -98,7 +102,7 @@ func (g *ReportingGenerator) printSection1(
 	unmatchedCRs []string,
 ) {
 	fmt.Fprintln(g.writer, "==================================================")
-	fmt.Fprintln(g.writer, "The following deviations must be addressed:")
+	fmt.Fprintln(g.writer, "Section A: Deviations that MUST BE ADDRESSED")
 	fmt.Fprintln(g.writer, "==================================================")
 	fmt.Fprintln(g.writer)
 
@@ -144,7 +148,7 @@ func (g *ReportingGenerator) printSection2(
 	diffResults []reportingDiffResult,
 ) {
 	fmt.Fprintln(g.writer, "==================================================")
-	fmt.Fprintln(g.writer, "The following deviations require guidance from the telco team:")
+	fmt.Fprintln(g.writer, "Section B: Deviations REQUIRING GUIDANCE from the telco team")
 	fmt.Fprintln(g.writer, "==================================================")
 	fmt.Fprintln(g.writer)
 
